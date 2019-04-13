@@ -1,5 +1,6 @@
 # Библиотеки
 from flask import Flask, request
+import math
 import requests
 import logging
 import json
@@ -17,7 +18,7 @@ search_api_server = "https://search-maps.yandex.ru/v1/"
 api_key = "dda3ddba-c9ea-4ead-9010-f43fbc15c6e3"
 geo_req = "https://geocode-maps.yandex.ru/1.x/?geocode={}&format=json"
 
-# Глава
+# Текущая глава и концовка
 chapter = 1
 ending = False
 
@@ -98,6 +99,27 @@ def search_obj(city, obj):
     except Exception:
         print("INTERNET_CONNECTION_PROBLEM")
         return 0
+
+
+# Определяем функцию, считающую расстояние между двумя точками, заданными координатами
+def lonlat_distance(a, b):
+    degree_to_meters_factor = 111 * 1000 # 111 километров в метрах
+    a_lon, a_lat = a
+    b_lon, b_lat = b
+
+    # Берем среднюю по широте точку и считаем коэффициент для нее.
+    radians_lattitude = math.radians((a_lat + b_lat) / 2.)
+    lat_lon_factor = math.cos(radians_lattitude)
+
+    # Вычисляем смещения в метрах по вертикали и горизонтали.
+    dx = abs(a_lon - b_lon) * degree_to_meters_factor * lat_lon_factor
+    dy = abs(a_lat - b_lat) * degree_to_meters_factor
+
+    # Вычисляем расстояние между точками.
+    distance = math.sqrt(dx * dx + dy * dy)
+
+    # Возвращаем длину пути
+    return str(round(distance, 0))[:-2]
 
 
 # Тело навыка
