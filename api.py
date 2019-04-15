@@ -1,9 +1,9 @@
 # Библиотеки
 from flask import Flask, request
 import math
-import requests
-import logging
 import json
+import logging
+import requests
 
 
 # Инициализация навыка и логгирование
@@ -17,23 +17,23 @@ sessionStorage = {}
 with open("quotes.json", "rt", encoding="utf8") as f:
     quotes = json.loads(f.read())
 
-# Для поиска объектов
-search_api_server = "https://search-maps.yandex.ru/v1/"
-api_key = "dda3ddba-c9ea-4ead-9010-f43fbc15c6e3"
-geo_req = "https://geocode-maps.yandex.ru/1.x/?geocode={}&format=json"
-
 
 # Класс для работы со всем, что связано с картами
 class MapsAPI:
     global search_api_server, api_key, geo_req
 
+    def __init__(self):
+        # Для поиска объектов
+        self.search_api_server = "https://search-maps.yandex.ru/v1/"
+        self.api_key = "dda3ddba-c9ea-4ead-9010-f43fbc15c6e3"
+        self.geo_req = "https://geocode-maps.yandex.ru/1.x/?geocode={}&format=json"
+
     # Информация о городах
     def geocode_obj(self, obj, kind):
-        global geo_req
         # Статус обработки запроса
         request = None
         # Запрос
-        geocoder_request = geo_req.format(obj)
+        geocoder_request = self.geo_req.format(obj)
         try:
             response = requests.get(geocoder_request)
             if response:
@@ -62,12 +62,10 @@ class MapsAPI:
 
     # Поиск объектов
     def search_obj(self, city, obj):
-        global picked_address_2
-
         # Адрес города, где происходят события
         address_ll = self.geocode_obj(city, 0)
         search_params = {
-            "apikey": api_key,
+            "apikey": self.api_key,
             "text": str(obj),
             "lang": "ru_RU",
             "ll": address_ll,
@@ -77,7 +75,7 @@ class MapsAPI:
         # Ответ от найденного объекта
         response = None
         try:
-            response = requests.get(search_api_server, params=search_params)
+            response = requests.get(self.search_api_server, params=search_params)
             if response:
                 json_response = response.json()
                 # Получаем первую найденную организацию.
@@ -87,7 +85,6 @@ class MapsAPI:
                 point1 = organization["geometry"]["coordinates"]
                 org_point = "{0}, {1}".format(point1[0], point1[1])
 
-                picked_address_2 = org_point
                 return 1
 
             # Обработка ошибки запроса
@@ -125,6 +122,8 @@ class MapsAPI:
 
 # Класс для передачи информации из JSON в диалог
 class Dialogue:
+    global quotes
+
     def __init__(self):
         # Текущая глава и концовка
         self.chapter = 1
@@ -190,8 +189,7 @@ def main():
 
 # Поддерживание диалога с пользователем
 def handle_dialog(res, req):
-    global chapter
-
+    global maps, dialog
     # Иницализация пользователя в сессиии
     user_id = req['session']['user_id']
 
