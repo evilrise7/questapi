@@ -1,11 +1,26 @@
 # questapi
 Сюжет разворачивается вокруг пользователя, у которого есть выбор - спасти 1-го из своих 2-х детей.
+## Сделано
+```
+JSON файл(1 глава)
+WikipediaAPI
+StaticMapsAPI
+GeocoderHTTP
+```
+## Не сделано
+Главы: 2 - 9
+MovieAPI
+MusicAPI
+Работа с Алисой
+Концовки
+Презентация
 ## Планы на API
 ```
 MovieAPI
 MusicAPI
 StaticMapsAPI
 Yandex.MarketHTTP
+GeocoderHTTP
 WikipediaHTTP(или любой другой ресурс, как энциклопедия)
 ```
 ## Планы на проект
