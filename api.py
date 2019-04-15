@@ -20,8 +20,6 @@ with open("quotes.json", "rt", encoding="utf8") as f:
 
 # Класс для работы со всем, что связано с картами
 class MapsAPI:
-    global search_api_server, api_key, geo_req
-
     def __init__(self):
         # Для поиска объектов
         self.search_api_server = "https://search-maps.yandex.ru/v1/"
