@@ -145,7 +145,7 @@ class Dialogue:
             person_txt = quotes[str(
                 self.chapter)]["quotes"][str(self.question)][str(step)]
 
-            text = text + person_txt
+            text = text + quotes[str(self.chapter)]["person"] + person_txt
         return text
 
     # Сброс значений
@@ -160,9 +160,6 @@ class Dialogue:
 # Создаю объекты классов
 maps = MapsAPI()  # Для карт
 dialog = Dialogue()  # Для диалогов
-
-# Для главы 2
-picked_address_2 = None
 
 
 # Тело навыка
@@ -196,10 +193,19 @@ def handle_dialog(res, req):
         # Настройки для класса
         dialog.reset()
 
+        sessionStorage[user_id] = {
+            'suggests': [
+                "Не хочу.",
+                "Не буду.",
+                "Отстань!",
+            ]
+        }
+
         chapter_txt = dialog.response_dialogue(
             dialog.chapter, dialog.begin, dialog.step, dialog.ending)
 
         res['response']['text'] = chapter_txt
+        res['response']['buttons'] = get_suggests(user_id)
         return
 
 
@@ -213,6 +219,19 @@ def get_first_name(req):
             # то возвращаем её значение.
             # Во всех остальных случаях возвращаем None.
             return entity['value'].get('first_name', None)
+
+
+# Функция возвращает две подсказки для ответа.
+def get_suggests(user_id):
+    session = sessionStorage[user_id]
+
+    # Выбираем две первые подсказки из массива.
+    suggests = [
+        {'title': suggest, 'hide': True}
+        for suggest in session['suggests']
+    ]
+
+    return suggests
 
 
 # Запуск игры
