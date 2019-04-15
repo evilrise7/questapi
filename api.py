@@ -181,6 +181,7 @@ class WikipediaAPI:
 # Создаю объекты классов
 maps = MapsAPI()  # Для карт
 dialog = Dialogue()  # Для диалогов
+wiki = WikipediaAPI()  # Для википедии(ножи)
 
 
 # Тело навыка
