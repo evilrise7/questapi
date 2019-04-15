@@ -2,8 +2,10 @@
 from flask import Flask, request
 import math
 import json
+import random
 import logging
 import requests
+import wikipedia
 
 
 # Инициализация навыка и логгирование
@@ -155,6 +157,25 @@ class Dialogue:
         self.step = 0
         self.begin = True
         self.ending = False
+
+
+# Класс для передачи информации о ножах
+class WikipediaAPI:
+    def __init__(self):
+        # Настраиваю лист ножей
+        self.index = 0
+        self.weapon_list = ["Нож разведчика",
+                            "Финка",
+                            "Керамбит"]
+        # Перемешиваю рандомно лист
+        self.weapon_list = random.shuffle(self.weapon_list)
+
+    def get_weapon_info(self):
+        # Настраиваю язык для WIKIPEDIA API
+        wikipedia.set_lang("ru")
+        # Вывожу только основное введение об оружии и возвращаю его
+        info = wikipedia.summary(self.weapon_list[self.index], sentences=3)
+        return info
 
 
 # Создаю объекты классов
