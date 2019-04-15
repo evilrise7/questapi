@@ -13,6 +13,10 @@ logging.basicConfig(level=logging.INFO)
 # Данные о пользователе
 sessionStorage = {}
 
+# Считываем инфу из файла с диалогами
+with open("quotes.json", "rt", encoding="utf8") as f:
+    quotes = json.loads(f.read())
+
 # Для поиска объектов
 search_api_server = "https://search-maps.yandex.ru/v1/"
 api_key = "dda3ddba-c9ea-4ead-9010-f43fbc15c6e3"
@@ -46,7 +50,8 @@ class MapsAPI:
             else:
                 print("SEARCH_ERROR")
                 print(geocoder_request)
-                print("HTTP_ERR ", response.status_code, "(", response.reason, ")")
+                print("HTTP_ERR ",
+                      response.status_code, "(", response.reason, ")")
                 return 0
 
         # Обработка ошибки при потерянном соединении с интернетом
@@ -88,7 +93,8 @@ class MapsAPI:
             # Обработка ошибки запроса
             else:
                 print("SEARCH_ERROR")
-                print("HTTP_ERR ", response.status_code, "(", response.reason, ")")
+                print("HTTP_ERR ",
+                      response.status_code, "(", response.reason, ")")
                 return 0
 
         # Обработка ошибки с интернет соединением
@@ -117,23 +123,49 @@ class MapsAPI:
         return str(round(distance, 0))[:-2]
 
 
-# Создаю объект класса
-api = MapsAPI()
+# Класс для передачи информации из JSON в диалог
+class Dialogue:
+    def __init__(self):
+        # Текущая глава и концовка
+        self.chapter = 1
+        self.question = 1
+        self.step = 0  # Отступ по иерархии в JSON. Подтипы [[0], [[1]]]
+        self.begin = True  # Перейти в начало главы
+        self.ending = False
 
-# Текущая глава и концовка
-chapter = 1
-ending = False
+    # Работа с выбором реплик из JSON
+    def response_dialogue(self, chapter, begin, step, ending):
+        # Текст подачи от навыка
+        text = ""
+        # Взять название главы из JSON
+        begin_txt = quotes[str(self.chapter)]["name"]
+        # Если мы перешли в начало главы
+        if begin:
+            # Текст оглавления
+            text = "Глава {}: {}\n".format(self.chapter, begin_txt)
+
+            # Часть диалога от навыка
+            person_txt = quotes[str(
+                self.chapter)]["quotes"][str(self.question)][str(step)]
+
+            text = text + person_txt
+        return text
+
+    # Сброс значений
+    def reset(self):
+        self.chapter = 1
+        self.question = 1
+        self.step = 0
+        self.begin = True
+        self.ending = False
+
+
+# Создаю объекты классов
+maps = MapsAPI()  # Для карт
+dialog = Dialogue()  # Для диалогов
 
 # Для главы 2
 picked_address_2 = None
-
-# Считываем инфу из файла с диалогами
-with open("quotes.json", "rt", encoding="utf8") as f:
-    quotes = json.loads(f.read())
-
-
-def chapter_dialogue():
-    return
 
 
 # Тело навыка
@@ -165,7 +197,13 @@ def handle_dialog(res, req):
 
     # Если пользователь новый, то начнем с первой главы
     if req['session']['new']:
-        chapter = 1
+        # Настройки для класса
+        dialog.reset()
+
+        chapter_txt = dialog.response_dialogue(
+            dialog.chapter, dialog.begin, dialog.step, dialog.ending)
+
+        res['response']['text'] = chapter_txt
         return
 
 
