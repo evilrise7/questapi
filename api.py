@@ -167,18 +167,23 @@ class Dialogue:
             # Берем лист всех вариантов вопроса в игроку
             person_list = quotes[str(self.chapter)]["quotes"][str(
                 self.question)][0]
-
             # Если вариантов вдруг меньше, чем самих вопросов
             # То изменяем шаг по иерархии
             if len(person_list) - 1 < self.step:
                 self.step = len(person_list) - 1
 
-            # Часть диалога от навыка
-            person_txt = person_list[self.step]
+            # Если внутри вопроса есть подвопрос
+            if any(isinstance(i, list) for i in person_list):
+                iter_list = person_list[self.step]
+                person_txt = iter_list[self.under]
+            # И наоборот
+            else:
+                # Часть диалога от навыка
+                person_txt = person_list[self.step]
 
             # Запись текста
             text = quotes[str(
-                self.chapter)]["person"] + ":\n" + person_txt
+                self.chapter)]["person"] + ":\n" + str(person_txt)
         return text
 
     # Захватить ответы из JSON файла
@@ -191,7 +196,7 @@ class Dialogue:
         if any(isinstance(i, list) for i in sug_list):
             iter_list = sug_list[self.step]
             # Отмечаю, что это был подлист
-            iter_list.append(-1)
+            iter_list.append("-1")
             return iter_list
 
         # Вовзращаем предложенные варианты
@@ -279,19 +284,23 @@ def handle_dialog(res, req):
 
     # Взять текущие предложенные ответы и перевести их в строчные
     sug_list = dialog.get_suggests()
+    print(sug_list)
     sug_list = list(map(lambda i: i.lower(), sug_list))
 
     if req['request']['original_utterance'].lower() in sug_list:
         # Перевод сообщения от пользователя в строчный вариант
         sug_index = sug_list.index(
             req['request']['original_utterance'].lower())
-        # Пользователь выбрал ответ, теперь меняем вопрос и подответ
+
         dialog.question += 1
-        dialog.step = sug_index
+        if "-1" in dialog.get_suggests():
+            # Пользователь выбрал ответ, теперь меняем вопрос и подответ
+            dialog.under = sug_index
+        else:
+            dialog.step = sug_index
 
         # Выводим ответ от навыка
         res['response']['text'] = dialog.response_dialogue()
-
         # Заполняем предложенные ответы
         write_suggests(user_id)
         # Вывод подсказок после вопроса
@@ -319,8 +328,8 @@ def write_suggests(user_id):
     writed_list = dialog.get_suggests()
 
     # Если это был подтип листа, то удаляем эти единички
-    if -1 in writed_list:
-        writed_list = list(filter((-1).__ne__, writed_list))
+    if "-1" in writed_list:
+        writed_list = list(filter("-1".__ne__, writed_list))
 
     # Заполняем предложенные ответы
     sessionStorage[user_id] = {
