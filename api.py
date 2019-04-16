@@ -146,8 +146,10 @@ class Dialogue:
         if self.begin:
             # Взять название главы из JSON
             begin_txt = quotes[str(self.chapter)]["name"]
+            place = quotes[str(self.chapter)]["description"]
             # Текст оглавления
-            text = "Глава {}: {}\n".format(self.chapter, begin_txt)
+            text = "Глава {}: {}\n{}\n".format(
+                self.chapter, begin_txt, place)
             # Часть диалога от навыка
             person_txt = quotes[str(self.chapter)]["quotes"][str(
                 self.question)][0][self.step]
@@ -316,9 +318,9 @@ def get_first_name(req):
 def write_suggests(user_id):
     writed_list = dialog.get_suggests()
 
-    # Если это был подтип листа, то обрезаем его
+    # Если это был подтип листа, то удаляем эти единички
     if -1 in writed_list:
-        del writed_list[-1]
+        writed_list = list(filter((-1).__ne__, writed_list))
 
     # Заполняем предложенные ответы
     sessionStorage[user_id] = {
