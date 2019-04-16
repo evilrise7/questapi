@@ -142,19 +142,40 @@ class Dialogue:
     def response_dialogue(self):
         # Текст подачи от навыка
         text = ""
-        # Взять название главы из JSON
-        begin_txt = quotes[str(self.chapter)]["name"]
         # Если мы перешли в начало главы
         if self.begin:
+            # Взять название главы из JSON
+            begin_txt = quotes[str(self.chapter)]["name"]
             # Текст оглавления
             text = "Глава {}: {}\n".format(self.chapter, begin_txt)
-
             # Часть диалога от навыка
             person_txt = quotes[str(self.chapter)]["quotes"][str(
                 self.question)][0][self.step]
 
             # Запись текста
             text = text + quotes[str(
+                self.chapter)]["person"] + ":\n" + person_txt
+
+        # Если мы перешли в конец главы
+        elif self.ending:
+            pass
+
+        # При продолжении текущего диалога в текущей главе
+        else:
+            # Берем лист всех вариантов вопроса в игроку
+            person_list = quotes[str(self.chapter)]["quotes"][str(
+                self.question)][0]
+
+            # Если вариантов вдруг меньше, чем самих вопросов
+            # То изменяем шаг по иерархии
+            if len(person_list) - 1 < self.step:
+                self.step = len(person_list) - 1
+
+            # Часть диалога от навыка
+            person_txt = person_list[self.step]
+
+            # Запись текста
+            text = quotes[str(
                 self.chapter)]["person"] + ":\n" + person_txt
         return text
 
@@ -163,9 +184,12 @@ class Dialogue:
         # Забираем список предложенных ответов
         sug_list = quotes[str(
             self.chapter)]["quotes"][str(self.question)][-1]
+
         # Если список предложенных ответов имеет вложенные списки
         if any(isinstance(i, list) for i in sug_list):
             iter_list = sug_list[self.step]
+            # Отмечаю, что это был подлист
+            iter_list.append(-1)
             return iter_list
 
         # Вовзращаем предложенные варианты
@@ -240,9 +264,7 @@ def handle_dialog(res, req):
         dialog.reset()
 
         # Заполняем предложенные ответы
-        sessionStorage[user_id] = {
-            'suggests': dialog.get_suggests()
-        }
+        write_suggests(user_id)
 
         # Захват названия главы
         chapter_txt = dialog.response_dialogue()
@@ -250,7 +272,32 @@ def handle_dialog(res, req):
         # Вывод названия главы, персонажа и подсказок
         res['response']['text'] = chapter_txt
         res['response']['buttons'] = get_suggests(user_id)
+        dialog.begin = False
         return
+
+    # Взять текущие предложенные ответы и перевести их в строчные
+    sug_list = dialog.get_suggests()
+    sug_list = list(map(lambda i: i.lower(), sug_list))
+
+    if req['request']['original_utterance'].lower() in sug_list:
+        # Перевод сообщения от пользователя в строчный вариант
+        sug_index = sug_list.index(
+            req['request']['original_utterance'].lower())
+        # Пользователь выбрал ответ, теперь меняем вопрос и подответ
+        dialog.question += 1
+        dialog.step = sug_index
+
+        # Выводим ответ от навыка
+        res['response']['text'] = dialog.response_dialogue()
+
+        # Заполняем предложенные ответы
+        write_suggests(user_id)
+        # Вывод подсказок после вопроса
+        res['response']['buttons'] = get_suggests(user_id)
+        return
+
+    # Вывод подсказок после вопроса
+    res['response']['buttons'] = get_suggests(user_id)
 
 
 # Даем имя Шарлотте
@@ -263,6 +310,20 @@ def get_first_name(req):
             # то возвращаем её значение.
             # Во всех остальных случаях возвращаем None.
             return entity['value'].get('first_name', None)
+
+
+# Запись внутри сессии предложенные ответы
+def write_suggests(user_id):
+    writed_list = dialog.get_suggests()
+
+    # Если это был подтип листа, то обрезаем его
+    if -1 in writed_list:
+        del writed_list[-1]
+
+    # Заполняем предложенные ответы
+    sessionStorage[user_id] = {
+        'suggests': writed_list
+    }
 
 
 # Функция возвращает две подсказки для ответа.
