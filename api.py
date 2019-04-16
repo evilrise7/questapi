@@ -1,5 +1,6 @@
 # Библиотеки
 from flask import Flask, request
+import os
 import math
 import json
 import random
@@ -10,13 +11,17 @@ import wikipedia
 
 # Инициализация навыка и логгирование
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'oh_so_secret'
 logging.basicConfig(level=logging.INFO)
 
 # Данные о пользователе
 sessionStorage = {}
 
 # Считываем инфу из файла с диалогами
-with open("quotes.json", "rt", encoding="utf8") as f:
+THIS_FOLDER = os.path.dirname(os.path.abspath(__file__))
+dialogues = os.path.join(THIS_FOLDER, 'quotes.json')
+
+with open(dialogues, "rt", encoding="utf8") as f:
     quotes = json.loads(f.read())
 
 
@@ -128,26 +133,27 @@ class Dialogue:
         # Текущая глава и концовка
         self.chapter = 1
         self.question = 1
-        self.step = 0  # Отступ по иерархии в JSON. Подтипы [[0], [[1]]]
+        self.step = 0  # Отступ по иерархии в JSON.
+        self.under = 0  # Отступ по иерархии в JSON. Подтипы [[0], [[1]]]
         self.begin = True  # Перейти в начало главы
         self.ending = False
 
     # Работа с выбором реплик из JSON
-    def response_dialogue(self, chapter, begin, step, ending):
+    def response_dialogue(self):
         # Текст подачи от навыка
         text = ""
         # Взять название главы из JSON
         begin_txt = quotes[str(self.chapter)]["name"]
         # Если мы перешли в начало главы
-        if begin:
+        if self.begin:
             # Текст оглавления
             text = "Глава {}: {}\n".format(self.chapter, begin_txt)
 
             # Часть диалога от навыка
             person_txt = quotes[str(
-                self.chapter)]["quotes"][str(self.question)][str(step)]
+                self.chapter)]["quotes"][str(self.question)][self.step][self.under]
 
-            text = text + quotes[str(self.chapter)]["person"] + person_txt
+            text = text + quotes[str(self.chapter)]["person"] + "\n" + person_txt
         return text
 
     # Сброс значений
@@ -223,8 +229,7 @@ def handle_dialog(res, req):
             ]
         }
 
-        chapter_txt = dialog.response_dialogue(
-            dialog.chapter, dialog.begin, dialog.step, dialog.ending)
+        chapter_txt = dialog.response_dialogue()
 
         res['response']['text'] = chapter_txt
         res['response']['buttons'] = get_suggests(user_id)
