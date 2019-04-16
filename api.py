@@ -150,19 +150,37 @@ class Dialogue:
             text = "Глава {}: {}\n".format(self.chapter, begin_txt)
 
             # Часть диалога от навыка
-            person_txt = quotes[str(
-                self.chapter)]["quotes"][str(self.question)][self.step][self.under]
+            person_txt = quotes[str(self.chapter)]["quotes"][str(
+                self.question)][0][self.step]
 
-            text = text + quotes[str(self.chapter)]["person"] + "\n" + person_txt
+            # Запись текста
+            text = text + quotes[str(
+                self.chapter)]["person"] + ":\n" + person_txt
         return text
+
+    # Захватить ответы из JSON файла
+    def get_suggests(self):
+        # Забираем список предложенных ответов
+        sug_list = quotes[str(
+            self.chapter)]["quotes"][str(self.question)][-1]
+        # Если список предложенных ответов имеет вложенные списки
+        if any(isinstance(i, list) for i in sug_list):
+            iter_list = sug_list[self.step]
+            return iter_list
+
+        # Вовзращаем предложенные варианты
+        return sug_list
 
     # Сброс значений
     def reset(self):
         self.chapter = 1
         self.question = 1
-        self.step = 0
+
         self.begin = True
         self.ending = False
+
+        self.step = 0
+        self.under = 0
 
 
 # Класс для передачи информации о ножах
@@ -221,16 +239,15 @@ def handle_dialog(res, req):
         # Настройки для класса
         dialog.reset()
 
+        # Заполняем предложенные ответы
         sessionStorage[user_id] = {
-            'suggests': [
-                "Не хочу.",
-                "Не буду.",
-                "Отстань!",
-            ]
+            'suggests': dialog.get_suggests()
         }
 
+        # Захват названия главы
         chapter_txt = dialog.response_dialogue()
 
+        # Вывод названия главы, персонажа и подсказок
         res['response']['text'] = chapter_txt
         res['response']['buttons'] = get_suggests(user_id)
         return
