@@ -50,5 +50,13 @@ WikipediaHTTP(или любой другой ресурс, как энцикло
 Концовок: 7
 Статус: Завершен
 ```
+## Библиотеки и работа с API
+# Для работы с PythonAnyWhere
+```
+Если вы работаете с проектом в системе PythonAnyWhere, то вам необходимо запустить BASH консоль и скачать следующие библиотеки по командам
+```
+```
+Wikipedia: pip3 install --user wikipedia
+```
 ## Автор проекта
 * **Nurmakhan Bakhtiyar** - *ULTRABAKHA* - [evil_rise7](https://github.com/evilrise7)
