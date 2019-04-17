@@ -13,6 +13,8 @@ import wikipedia
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'oh_so_secret'
 logging.basicConfig(level=logging.INFO)
+# Для медиа в API
+token = "AQAAAAAgJxqBAAT7o_igAfUDAkY3pzREDfFKi0k"
 
 # Данные о пользователе
 sessionStorage = {}
@@ -148,9 +150,11 @@ class Dialogue:
             # Взять название главы из JSON
             begin_txt = quotes[str(self.chapter)]["name"]
             place = quotes[str(self.chapter)]["description"]
+
             # Текст оглавления
             text = "Глава {}: {}\n{}\n".format(
                 self.chapter, begin_txt, place)
+
             # Часть диалога от навыка
             person_txt = quotes[str(self.chapter)]["quotes"][str(
                 self.question)][0][self.step]
@@ -321,7 +325,7 @@ def main():
 
 # Поддерживание диалога с пользователем
 def handle_dialog(res, req):
-    global maps, dialog
+    global maps, dialog, quotes
     # Иницализация пользователя в сессиии
     user_id = req['session']['user_id']
 
@@ -337,8 +341,13 @@ def handle_dialog(res, req):
         chapter_txt = dialog.response_dialogue()
 
         # Вывод названия главы, персонажа и подсказок
-        res['response']['text'] = chapter_txt
         res['response']['buttons'] = get_suggests(user_id)
+
+        # Установка картинки и описания действия
+        res = set_card(res)
+        res['response']['text'] = chapter_txt
+        res['response']['card']['description'] = chapter_txt
+
         dialog.begin = False
         return
 
@@ -357,7 +366,11 @@ def handle_dialog(res, req):
 
         # Добавляем речь героев из следующей главы
         data_res += "\n\n" + dialog.response_dialogue()
+
+        # Установка картинки
+        res = set_card(res)
         res['response']['text'] = data_res
+        res['response']['card']['description'] = data_res
 
         # Добавляем подсказки для следующей главы
         write_suggests(user_id)
@@ -386,7 +399,11 @@ def handle_dialog(res, req):
             response_text = ""
             # Добавляем речь героев из следующей главы
             response_text += "\n\n" + dialog.response_dialogue()
+
+            # Установка картинки
+            res = set_card(res)
             res['response']['text'] = response_text
+            res['response']['card']['description'] = response_text
 
             # Добавляем подсказки для следующей главы
             write_suggests(user_id)
@@ -469,6 +486,17 @@ def error_check(error):
         bot_txt = "☻Навык:\n-Нажмите на одну из подсказок!"
     # Возвращаем сообщение от навыка
     return bot_txt
+
+
+# Установка картинки
+def set_card(res):
+    res['response']['card'] = {}
+    res['response']['card']['type'] = "BigImage"
+    res['response']['card']['title'] = quotes[str(
+        dialog.chapter)]["name"]
+    res['response']['card']['image_id'] = quotes[str(
+        dialog.chapter)]["image"]
+    return res
 
 
 # Запуск игры
