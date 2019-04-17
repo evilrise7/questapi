@@ -147,20 +147,12 @@ class Dialogue:
         text = ""
         # Если мы перешли в начало главы
         if self.begin:
-            # Взять название главы из JSON
-            begin_txt = quotes[str(self.chapter)]["name"]
-            place = quotes[str(self.chapter)]["description"]
-
-            # Текст оглавления
-            text = "Глава {}: {}\n{}\n".format(
-                self.chapter, begin_txt, place)
-
             # Часть диалога от навыка
             person_txt = quotes[str(self.chapter)]["quotes"][str(
                 self.question)][0][self.step]
 
             # Запись текста
-            text = text + quotes[str(
+            text = quotes[str(
                 self.chapter)]["person"] + ":\n-" + person_txt
 
         # Если мы перешли в конец главы
@@ -206,12 +198,16 @@ class Dialogue:
         first_name = get_first_name(req)
         # если не нашли, то сообщаем пользователю что не расслышали.
         if first_name is None:
-            return str(person_list[0]).format(first_name.title())
+            return str(quotes[str(
+                self.chapter)]["person"]) + ":\n-" + str(
+                person_list[0]).format(first_name.title())
 
         # если нашли, то захватываем с собой
         else:
             sessionStorage[user_id]['first_name'] = first_name
-            return str(person_list[-1].format(first_name.title()))
+            return str(quotes[str(
+                self.chapter)]["person"]) + ":\n-" + str(
+                person_list[-1].format(first_name.title()))
 
     # Захватить ответы из JSON файла
     def get_suggests(self):
@@ -268,7 +264,6 @@ class Dialogue:
 
     # Сброс значений
     def reset(self):
-        self.chapter = 1
         self.question = 1
 
         self.begin = True
@@ -331,8 +326,11 @@ def handle_dialog(res, req):
 
     # Если пользователь новый, то начнем с первой главы
     if req['session']['new']:
+        # Очистка словаря от данных
+        sessionStorage.clear()
         # Настройки для класса
         dialog.reset()
+        dialog.chapter = 1
 
         # Заполняем предложенные ответы
         write_suggests(user_id)
@@ -340,13 +338,13 @@ def handle_dialog(res, req):
         # Захват названия главы
         chapter_txt = dialog.response_dialogue()
 
-        # Вывод названия главы, персонажа и подсказок
-        res['response']['buttons'] = get_suggests(user_id)
-
         # Установка картинки и описания действия
         res = set_card(res)
-        res['response']['text'] = chapter_txt
         res['response']['card']['description'] = chapter_txt
+
+        res['response']['text'] = chapter_txt
+        # Вывод названия главы, персонажа и подсказок
+        res['response']['buttons'] = get_suggests(user_id)
 
         dialog.begin = False
         return
@@ -365,12 +363,12 @@ def handle_dialog(res, req):
         dialog.chapter = 2
 
         # Добавляем речь героев из следующей главы
-        data_res += "\n\n" + dialog.response_dialogue()
+        data_res += "\n" + dialog.response_dialogue()
 
         # Установка картинки
         res = set_card(res)
-        res['response']['text'] = data_res
         res['response']['card']['description'] = data_res
+        res['response']['text'] = data_res
 
         # Добавляем подсказки для следующей главы
         write_suggests(user_id)
@@ -383,6 +381,11 @@ def handle_dialog(res, req):
         sug_index = sug_list.index(
             req['request']['original_utterance'].lower())
 
+        # Если уже конец главы, переходим на следующую
+        if dialog.check_end():
+            res = chapter_end(res, user_id)
+            return
+
         dialog.question += 1
 
         # Проверка на подлисты внутри ответов
@@ -392,23 +395,6 @@ def handle_dialog(res, req):
         # И наоборот
         else:
             dialog.step = sug_index
-
-        # Если уже конец главы, переходим на следующую
-        if dialog.check_end():
-            dialog.check_end()
-            response_text = ""
-            # Добавляем речь героев из следующей главы
-            response_text += "\n\n" + dialog.response_dialogue()
-
-            # Установка картинки
-            res = set_card(res)
-            res['response']['text'] = response_text
-            res['response']['card']['description'] = response_text
-
-            # Добавляем подсказки для следующей главы
-            write_suggests(user_id)
-            res['response']['buttons'] = get_suggests(user_id)
-            return
 
         # Выводим ответ от навыка
         res['response']['text'] = dialog.response_dialogue()
@@ -429,6 +415,25 @@ def handle_dialog(res, req):
 
     # Вывод подсказок после вопроса
     res['response']['buttons'] = get_suggests(user_id)
+
+
+# Если главе наступил конец
+def chapter_end(res, user_id):
+    global dialog
+    dialog.check_end()
+    response_text = ""
+    # Добавляем речь героев из следующей главы
+    response_text += "\n" + dialog.response_dialogue()
+
+    # Установка картинки
+    res = set_card(res)
+    res['response']['card']['description'] = response_text
+    res['response']['text'] = response_text
+
+    # Добавляем подсказки для следующей главы
+    write_suggests(user_id)
+    res['response']['buttons'] = get_suggests(user_id)
+    return res
 
 
 # Даем имя Шарлотте
