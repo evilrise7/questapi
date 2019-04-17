@@ -207,7 +207,7 @@ class Dialogue:
         # если нашли, то захватываем с собой
         else:
             sessionStorage[user_id]['first_name'] = first_name
-            return person_list[-1]
+            return str(person_list[-1].format(first_name.title()))
 
     # Захватить ответы из JSON файла
     def get_suggests(self):
@@ -224,6 +224,43 @@ class Dialogue:
 
         # Вовзращаем предложенные варианты
         return sug_list
+
+    # Проверка на конец диалога в текущей главе
+    def check_end(self):
+        question_list = quotes[str(
+            self.chapter)]["quotes"][str(self.question)]
+
+        # При завершении главы ставится внутри JSON - "q"
+        for sub_question in question_list:
+            # Если внутри текущего вопроса существуют подлисты
+            # то идет проверка этих листов на наличие - "q"
+            if any(isinstance(i, list) for i in sub_question):
+                # Аналогично, проверка подлистов внутри листов
+                for i in range(len(sub_question)):
+                    for sub_element in range(len(sub_question[i])):
+                        if sub_question[i][sub_element] == "q":
+                            # Сброс настроек диалога и переход
+                            # на следующую главу
+                            dialog.reset()
+                            dialog.chapter += 1
+                            return 1
+
+            # Если внутри нет подлистов, то считывается
+            # текущий лист вопроса
+            else:
+                for element in range(len(sub_question)):
+                    if sub_question[element] == "q":
+                        # Сброс настроек диалога и переход
+                        # на следующую главу
+                        dialog.reset()
+                        dialog.chapter += 1
+                        return 1
+        '''
+        Проверка идет for циклом, а не itertools, zip, filter
+        т.к. проверка занимает в одном цикле ~0.5 с
+        В других же случаях: itertools ~1.1 с и т.д.
+        '''
+        return 0
 
     # Сброс значений
     def reset(self):
@@ -318,7 +355,7 @@ def handle_dialog(res, req):
         dialog.reset()
         dialog.chapter = 2
 
-        # Добалвяем речь героев из следующей главы
+        # Добавляем речь героев из следующей главы
         data_res += "\n\n" + dialog.response_dialogue()
         res['response']['text'] = data_res
 
@@ -343,6 +380,19 @@ def handle_dialog(res, req):
         else:
             dialog.step = sug_index
 
+        # Если уже конец главы, переходим на следующую
+        if dialog.check_end():
+            dialog.check_end()
+            response_text = ""
+            # Добавляем речь героев из следующей главы
+            response_text += "\n\n" + dialog.response_dialogue()
+            res['response']['text'] = response_text
+
+            # Добавляем подсказки для следующей главы
+            write_suggests(user_id)
+            res['response']['buttons'] = get_suggests(user_id)
+            return
+
         # Выводим ответ от навыка
         res['response']['text'] = dialog.response_dialogue()
 
@@ -355,6 +405,10 @@ def handle_dialog(res, req):
             # Вывод подсказок после вопроса
             res['response']['buttons'] = get_suggests(user_id)
         return
+
+    # В случае, если были взяты не те подсказки,
+    # пользователю дают по шее и просят выбрать одну из них
+    res['response']['text'] = error_check("request_text")
 
     # Вывод подсказок после вопроса
     res['response']['buttons'] = get_suggests(user_id)
@@ -405,6 +459,16 @@ def get_suggests(user_id):
     ]
 
     return suggests
+
+
+# При наличии ошибок
+def error_check(error):
+    bot_txt = ""
+    # Если ошибка была из-за неправильно введенных данных
+    if error == "request_text":
+        bot_txt = "☻Навык:\n-Нажмите на одну из подсказок!"
+    # Возвращаем сообщение от навыка
+    return bot_txt
 
 
 # Запуск игры
