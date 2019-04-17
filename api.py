@@ -157,7 +157,7 @@ class Dialogue:
 
             # Запись текста
             text = text + quotes[str(
-                self.chapter)]["person"] + ":\n" + person_txt
+                self.chapter)]["person"] + ":\n-" + person_txt
 
         # Если мы перешли в конец главы
         elif self.ending:
@@ -189,7 +189,7 @@ class Dialogue:
 
             # Запись текста
             text = quotes[str(
-                self.chapter)]["person"] + ":\n" + str(person_txt)
+                self.chapter)]["person"] + ":\n-" + str(person_txt)
         return text
 
     # Если дошли до части, где мы называем ребенка
@@ -311,8 +311,21 @@ def handle_dialog(res, req):
 
     # Если мы в Главе 1, дошли до части, где называем ребенка
     if write_suggests(user_id) == "name":
-        print(dialog.name_sharlotta(user_id, req))
-        res['response']['text'] = dialog.name_sharlotta(user_id, req)
+        # Берем часть диалога об имени Шарлотты
+        data_res = dialog.name_sharlotta(user_id, req)
+
+        # Сбрасываем настройки диалога к следующей главе
+        dialog.reset()
+        dialog.chapter = 2
+
+        # Добалвяем речь героев из следующей главы
+        data_res += "\n\n" + dialog.response_dialogue()
+        res['response']['text'] = data_res
+
+        # Добавляем подсказки для следующей главы
+        write_suggests(user_id)
+        res['response']['buttons'] = get_suggests(user_id)
+        return
 
     # Остальные случаи
     if req['request']['original_utterance'].lower() in sug_list:
