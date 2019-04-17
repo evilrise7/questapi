@@ -31,14 +31,14 @@ class MapsAPI:
         # Для поиска объектов
         self.search_api_server = "https://search-maps.yandex.ru/v1/"
         self.api_key = "dda3ddba-c9ea-4ead-9010-f43fbc15c6e3"
-        self.geo_req = "https://geocode-maps.yandex.ru/1.x/?geocode={}&format=json"
+        self.geo = "https://geocode-maps.yandex.ru/1.x/?geocode={}&format=json"
 
     # Информация о городах
     def geocode_obj(self, obj, kind):
         # Статус обработки запроса
         request = None
         # Запрос
-        geocoder_request = self.geo_req.format(obj)
+        geocoder_request = self.geo.format(obj)
         try:
             response = requests.get(geocoder_request)
             if response:
@@ -80,7 +80,8 @@ class MapsAPI:
         # Ответ от найденного объекта
         response = None
         try:
-            response = requests.get(self.search_api_server, params=search_params)
+            response = requests.get(
+                self.search_api_server, params=search_params)
             if response:
                 json_response = response.json()
                 # Получаем первую найденную организацию.
@@ -191,6 +192,23 @@ class Dialogue:
                 self.chapter)]["person"] + ":\n" + str(person_txt)
         return text
 
+    # Если дошли до части, где мы называем ребенка
+    def name_sharlotta(self, user_id, req):
+        global sessionStorage
+        # Берем лист всех вариантов вопроса в игроку
+        person_list = quotes[str(self.chapter)]["quotes"]["5"][0]
+
+        # в последнем его сообщение ищем имя.
+        first_name = get_first_name(req)
+        # если не нашли, то сообщаем пользователю что не расслышали.
+        if first_name is None:
+            return str(person_list[0]).format(first_name.title())
+
+        # если нашли, то захватываем с собой
+        else:
+            sessionStorage[user_id]['first_name'] = first_name
+            return person_list[-1]
+
     # Захватить ответы из JSON файла
     def get_suggests(self):
         # Забираем список предложенных ответов
@@ -291,6 +309,12 @@ def handle_dialog(res, req):
     sug_list = dialog.get_suggests()
     sug_list = list(map(lambda i: i.lower(), sug_list))
 
+    # Если мы в Главе 1, дошли до части, где называем ребенка
+    if write_suggests(user_id) == "name":
+        print(dialog.name_sharlotta(user_id, req))
+        res['response']['text'] = dialog.name_sharlotta(user_id, req)
+
+    # Остальные случаи
     if req['request']['original_utterance'].lower() in sug_list:
         # Перевод сообщения от пользователя в строчный вариант
         sug_index = sug_list.index(
@@ -302,7 +326,7 @@ def handle_dialog(res, req):
         if "-1" in dialog.get_suggests():
             # Пользователь выбрал ответ, теперь меняем вопрос и подответ
             dialog.under = sug_index
-
+        # И наоборот
         else:
             dialog.step = sug_index
 
@@ -310,9 +334,13 @@ def handle_dialog(res, req):
         res['response']['text'] = dialog.response_dialogue()
 
         # Заполняем предложенные ответы
-        write_suggests(user_id)
-        # Вывод подсказок после вопроса
-        res['response']['buttons'] = get_suggests(user_id)
+        # Если просили дать ответ с клавиатуры, подсказок нет
+        if write_suggests(user_id):
+            return
+        # Иначе они могут быть
+        else:
+            # Вывод подсказок после вопроса
+            res['response']['buttons'] = get_suggests(user_id)
         return
 
     # Вывод подсказок после вопроса
@@ -335,6 +363,13 @@ def get_first_name(req):
 def write_suggests(user_id):
     writed_list = dialog.get_suggests()
 
+    # Лист объектов, которые вводят с клавиатуры
+    list_objects = ["name", "cafe"]
+    # Проверка, нужно ли что-нибудь писать на клавиатуре
+    for i in range(len(list_objects)):
+        if list_objects[i] in writed_list:
+            return list_objects[i]
+
     # Если это был подтип листа, то удаляем эти единички
     if "-1" in writed_list:
         writed_list = list(filter("-1".__ne__, writed_list))
@@ -343,6 +378,7 @@ def write_suggests(user_id):
     sessionStorage[user_id] = {
         'suggests': writed_list
     }
+    return 0
 
 
 # Функция возвращает две подсказки для ответа.
