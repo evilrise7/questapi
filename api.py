@@ -241,8 +241,8 @@ class Dialogue:
                         if sub_question[i][sub_element] == "q":
                             # Сброс настроек диалога и переход
                             # на следующую главу
-                            dialog.reset()
-                            dialog.chapter += 1
+                            self.reset()
+                            self.chapter += 1
                             return 1
 
             # Если внутри нет подлистов, то считывается
@@ -252,8 +252,8 @@ class Dialogue:
                     if sub_question[element] == "q":
                         # Сброс настроек диалога и переход
                         # на следующую главу
-                        dialog.reset()
-                        dialog.chapter += 1
+                        self.reset()
+                        self.chapter += 1
                         return 1
         '''
         Проверка идет for циклом, а не itertools, zip, filter
@@ -377,6 +377,9 @@ def handle_dialog(res, req):
 
     # Остальные случаи
     if req['request']['original_utterance'].lower() in sug_list:
+        # Мы не в начале диалога, поэтому убираем эту опцию
+        dialog.begin = False
+
         # Перевод сообщения от пользователя в строчный вариант
         sug_index = sug_list.index(
             req['request']['original_utterance'].lower())
@@ -393,6 +396,12 @@ def handle_dialog(res, req):
         if "-1" in dialog.get_suggests():
             # Пользователь выбрал ответ, теперь меняем вопрос и подответ
             dialog.under = sug_index
+
+            # В случае Главы 2, где нас требуют выбрать кафе для ужина
+            if dialog.chapter == 2:
+                if dialog.question == 2:
+                    dialog.step = sug_index
+
         # И наоборот
         else:
             dialog.step = sug_index
@@ -408,6 +417,7 @@ def handle_dialog(res, req):
                     res = chapter_end(res, user_id)
                     return
 
+        print(dialog.chapter, dialog.under, dialog.step, dialog.question)
         # Выводим ответ от навыка
         res['response']['text'] = dialog.response_dialogue()
 
@@ -415,6 +425,7 @@ def handle_dialog(res, req):
         # Если просили дать ответ с клавиатуры, подсказок нет
         if write_suggests(user_id):
             return
+
         # Иначе они могут быть
         else:
             # Вывод подсказок после вопроса
@@ -468,6 +479,7 @@ def write_suggests(user_id):
 
     # Лист объектов, которые вводят с клавиатуры
     list_objects = ["name", "cafe"]
+
     # Проверка, нужно ли что-нибудь писать на клавиатуре
     for i in range(len(list_objects)):
         if list_objects[i] in writed_list:
