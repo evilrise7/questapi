@@ -22,9 +22,15 @@ sessionStorage = {}
 # Считываем инфу из файла с диалогами
 THIS_FOLDER = os.path.dirname(os.path.abspath(__file__))
 dialogues = os.path.join(THIS_FOLDER, 'quotes.json')
+endings = os.path.join(THIS_FOLDER, 'endings.json')
 
+# Диалоги из JSON
 with open(dialogues, "rt", encoding="utf8") as f:
     quotes = json.loads(f.read())
+
+# Концовки из JSON
+with open(endings, "rt", encoding="utf8") as f:
+    ends = json.loads(f.read())
 
 
 # Класс для работы со всем, что связано с картами
@@ -33,49 +39,15 @@ class MapsAPI:
         # Для поиска объектов
         self.search_api_server = "https://search-maps.yandex.ru/v1/"
         self.api_key = "dda3ddba-c9ea-4ead-9010-f43fbc15c6e3"
-        self.geo = "https://geocode-maps.yandex.ru/1.x/?geocode={}&format=json"
-
-    # Информация о городах
-    def geocode_obj(self, obj, kind):
-        # Статус обработки запроса
-        request = None
-        # Запрос
-        geocoder_request = self.geo.format(obj)
-        try:
-            response = requests.get(geocoder_request)
-            if response:
-                json_response = response.json()
-                toponym = json_response["response"]["GeoObjectCollection"]
-                toponym_feature = toponym["featureMember"][0]["GeoObject"]
-
-                # Если речь идет о поиски координатов города
-                if not kind:
-                    coordinates = toponym_feature["Point"]["pos"]
-                    return coordinates
-
-            # Обработка ошибки запроса
-            else:
-                print("SEARCH_ERROR")
-                print(geocoder_request)
-                print("HTTP_ERR ",
-                      response.status_code, "(", response.reason, ")")
-                return 0
-
-        # Обработка ошибки при потерянном соединении с интернетом
-        except Exception:
-            print("INTERNET_CONNECTION_ERROR")
-            print(geocoder_request)
-            return 0
 
     # Поиск объектов
-    def search_obj(self, city, obj):
+    def search_obj(self, coordinates, obj):
         # Адрес города, где происходят события
-        address_ll = self.geocode_obj(city, 0)
         search_params = {
             "apikey": self.api_key,
             "text": str(obj),
             "lang": "ru_RU",
-            "ll": address_ll,
+            "ll": coordinates,
             "type": "biz"
         }
 
@@ -91,9 +63,8 @@ class MapsAPI:
 
                 # Получаем координаты ответа.
                 point1 = organization["geometry"]["coordinates"]
-                org_point = "{0}, {1}".format(point1[0], point1[1])
-
-                return 1
+                org_point = (point1[0], point1[1])
+                return org_point
 
             # Обработка ошибки запроса
             else:
@@ -125,12 +96,34 @@ class MapsAPI:
         distance = math.sqrt(dx * dx + dy * dy)
 
         # Возвращаем длину пути
-        return str(round(distance, 0))[:-2]
+        return round(distance, 0)
+
+    # Найдем кафе для Главы 2
+    def find_cafe(self, cafe):
+        # События происходят в киностудии
+        # взял для примера Paramount Pictures
+        studio_corstr = "-118.317346, 34.08446"
+        studio_cortup = (-118.317346, 34.08446)
+        # Берем координаты места действия
+        if self.search_obj(studio_corstr, cafe.lower()):
+            place_cor = self.search_obj(studio_corstr, cafe.lower())
+        else:
+            return 0
+
+        # Если требования соблюдены, и кафе в радиусе 2 км, возвращаем
+        # Положительный ответ. Иначе 0
+        if self.lonlat_distance(place_cor, studio_cortup) <= 2000:
+            return 1
+        else:
+            return 0
+
+
+maps = MapsAPI()  # Для карт
 
 
 # Класс для передачи информации из JSON в диалог
 class Dialogue:
-    global quotes
+    global quotes, sessionStorage, maps, ends
 
     def __init__(self):
         # Текущая глава и концовка
@@ -155,9 +148,10 @@ class Dialogue:
             text = quotes[str(
                 self.chapter)]["person"] + ":\n-" + person_txt
 
-        # Если мы перешли в конец главы
+        # Если мы перешли в конец 1
         elif self.ending:
-            pass
+            end_txt = ends[str(self.ending)]["text"]
+            return end_txt
 
         # При продолжении текущего диалога в текущей главе
         else:
@@ -190,7 +184,6 @@ class Dialogue:
 
     # Если дошли до части, где мы называем ребенка
     def name_sharlotta(self, user_id, req):
-        global sessionStorage
         # Берем лист всех вариантов вопроса в игроку
         person_list = quotes[str(self.chapter)]["quotes"]["5"][0]
 
@@ -208,6 +201,26 @@ class Dialogue:
             return str(quotes[str(
                 self.chapter)]["person"]) + ":\n-" + str(
                 person_list[-1].format(first_name.title()))
+
+    # Поиск кафе для Главы 2
+    def get_cafe(self, user_id, req):
+        # Берем лист всех вариантов вопроса в игроку
+        person_list = quotes[str(self.chapter)]["quotes"]["3"][0][0]
+        cafe_name = req['request']['original_utterance'].lower()
+
+        # Если кафе выполняет требования заданные персонажем
+        if maps.find_cafe(cafe_name):
+            sessionStorage[user_id]['cafe_name'] = cafe_name.title()
+            # Сохраняем в session и возвращаем сообщение
+            return str(quotes[str(
+                self.chapter)]["person"]) + ":\n-" + str(
+                person_list[0])
+        # Иначе
+        else:
+            # Возвращаем сообщение персонажа
+            return str(quotes[str(
+                self.chapter)]["person"]) + ":\n-" + str(
+                person_list[-1])
 
     # Захватить ответы из JSON файла
     def get_suggests(self):
@@ -293,7 +306,6 @@ class WikipediaAPI:
 
 
 # Создаю объекты классов
-maps = MapsAPI()  # Для карт
 dialog = Dialogue()  # Для диалогов
 wiki = WikipediaAPI()  # Для википедии(ножи)
 
@@ -331,22 +343,7 @@ def handle_dialog(res, req):
         # Настройки для класса
         dialog.reset()
         dialog.chapter = 1
-
-        # Заполняем предложенные ответы
-        write_suggests(user_id)
-
-        # Захват названия главы
-        chapter_txt = dialog.response_dialogue()
-
-        # Установка картинки и описания действия
-        res = set_card(res)
-        res['response']['card']['description'] = chapter_txt
-
-        res['response']['text'] = chapter_txt
-        # Вывод названия главы, персонажа и подсказок
-        res['response']['buttons'] = get_suggests(user_id)
-
-        dialog.begin = False
+        res = new_chapter(res, user_id)
         return
 
     # Взять текущие предложенные ответы и перевести их в строчные
@@ -361,18 +358,28 @@ def handle_dialog(res, req):
         # Сбрасываем настройки диалога к следующей главе
         dialog.reset()
         dialog.chapter = 2
+        res = chapter_object(data_res, res, user_id)
+        return
 
-        # Добавляем речь героев из следующей главы
-        data_res += "\n" + dialog.response_dialogue()
+    # Если мы в Главе 2, дошли до части, где называем кафе
+    if write_suggests(user_id) == "cafe":
+        data_res = dialog.get_cafe(user_id, req)
 
-        # Установка картинки
-        res = set_card(res)
-        res['response']['card']['description'] = data_res
-        res['response']['text'] = data_res
+        # Сбрасываем настройки диалога к следующей главе
+        dialog.reset()
+        dialog.chapter = 3
+        res = chapter_object(data_res, res, user_id)
+        return
 
-        # Добавляем подсказки для следующей главы
-        write_suggests(user_id)
-        res['response']['buttons'] = get_suggests(user_id)
+    # Команды для админа, для перехода между главами(debug)
+    if req['request']['original_utterance'].lower() in ["/chapter1",
+                                                        "/chapter2",
+                                                        "/chapter3"]:
+        dialog.reset()
+        dialog.chapter = 0
+        dialog.chapter = int(
+            req['request']['original_utterance'].lower()[-1])
+        res = new_chapter(res, user_id)
         return
 
     # Остальные случаи
@@ -385,8 +392,8 @@ def handle_dialog(res, req):
             req['request']['original_utterance'].lower())
 
         # Если уже конец главы, переходим на следующую
-        if dialog.check_end():
-            res = chapter_end(res, user_id)
+        if dialog.check_end() and dialog.chapter != 2:
+            res = chapter_end(res, user_id, 0)
             return
 
         # Переход к следующему вопросу
@@ -414,10 +421,21 @@ def handle_dialog(res, req):
                 # Если уже конец главы, переходим на следующую
                 if dialog.check_end():
                     # Выводим ответ от навыка
-                    res = chapter_end(res, user_id)
+                    res = chapter_end(res, user_id, 0)
                     return
 
-        print(dialog.chapter, dialog.under, dialog.step, dialog.question)
+        '''
+        Для второй главы, при завершении диалога мы идем в концовку 1
+        '''
+        if dialog.chapter == 2:
+            if dialog.question == 4:
+                # Если уже конец главы, переходим на следующую
+                if 'cafe_name' not in sessionStorage[user_id]:
+                    if dialog.check_end():
+                        # Выводим ответ от навыка
+                        res = chapter_end(res, user_id, 1)
+                        return
+
         # Выводим ответ от навыка
         res['response']['text'] = dialog.response_dialogue()
 
@@ -440,12 +458,60 @@ def handle_dialog(res, req):
     res['response']['buttons'] = get_suggests(user_id)
 
 
+# Начинаем новую главу
+def new_chapter(res, user_id):
+    # Заполняем предложенные ответы
+    write_suggests(user_id)
+
+    # Захват названия главы
+    chapter_txt = dialog.response_dialogue()
+
+    # Установка картинки и описания действия
+    res = set_card(res)
+    res['response']['card']['description'] = chapter_txt
+
+    res['response']['text'] = chapter_txt
+    # Вывод названия главы, персонажа и подсказок
+    res['response']['buttons'] = get_suggests(user_id)
+
+    dialog.begin = False
+    return res
+
+
+# Если речь идет об именах или поиском объекта
+def chapter_object(data_res, res, user_id):
+    # Добавляем речь героев из следующей главы
+    data_res += "\n" + dialog.response_dialogue()
+
+    # Установка картинки
+    res = set_card(res)
+    res['response']['card']['description'] = data_res
+    res['response']['text'] = data_res
+
+    # Добавляем подсказки для следующей главы
+    write_suggests(user_id)
+    res['response']['buttons'] = get_suggests(user_id)
+    return res
+
+
 # Если главе наступил конец
-def chapter_end(res, user_id):
-    global dialog
+def chapter_end(res, user_id, kind):
     response_text = ""
 
     dialog.check_end()
+
+    # Для главы 2, где мы не идем в кафе
+    if kind == 1:
+        # Заканчиваем игру концовкой 1
+        dialog.chapter = 1
+        dialog.begin = False
+        dialog.ending = 1
+
+        # Добавляем речь героев из следующей главы
+        response_text = dialog.response_dialogue()
+        res['response']['text'] = response_text
+        return
+
     # Добавляем речь героев из следующей главы
     response_text += "\n" + dialog.response_dialogue()
 
