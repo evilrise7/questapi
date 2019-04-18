@@ -386,6 +386,7 @@ def handle_dialog(res, req):
             res = chapter_end(res, user_id)
             return
 
+        # Переход к следующему вопросу
         dialog.question += 1
 
         # Проверка на подлисты внутри ответов
@@ -395,6 +396,17 @@ def handle_dialog(res, req):
         # И наоборот
         else:
             dialog.step = sug_index
+
+        '''
+        Для первой главый ограничение в обновлении, т.к. там есть вводы
+        '''
+        if dialog.chapter == 1:
+            if dialog.question == 4 and dialog.step != 1:
+                # Если уже конец главы, переходим на следующую
+                if dialog.check_end():
+                    # Выводим ответ от навыка
+                    res = chapter_end(res, user_id)
+                    return
 
         # Выводим ответ от навыка
         res['response']['text'] = dialog.response_dialogue()
@@ -420,19 +432,21 @@ def handle_dialog(res, req):
 # Если главе наступил конец
 def chapter_end(res, user_id):
     global dialog
-    dialog.check_end()
     response_text = ""
+
+    dialog.check_end()
     # Добавляем речь героев из следующей главы
     response_text += "\n" + dialog.response_dialogue()
 
     # Установка картинки
     res = set_card(res)
     res['response']['card']['description'] = response_text
-    res['response']['text'] = response_text
 
     # Добавляем подсказки для следующей главы
     write_suggests(user_id)
     res['response']['buttons'] = get_suggests(user_id)
+
+    res['response']['text'] = response_text
     return res
 
 
