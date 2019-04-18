@@ -132,7 +132,7 @@ class Dialogue:
         self.step = 0  # Отступ по иерархии в JSON.
         self.under = 0  # Отступ по иерархии в JSON. Подтипы [[0], [[1]]]
         self.begin = True  # Перейти в начало главы
-        self.ending = False
+        self.ending = 0
 
     # Работа с выбором реплик из JSON
     def response_dialogue(self):
@@ -280,7 +280,7 @@ class Dialogue:
         self.question = 1
 
         self.begin = True
-        self.ending = False
+        self.ending = 0
 
         self.step = 0
         self.under = 0
