@@ -200,7 +200,7 @@ class Dialogue:
         if first_name is None:
             return str(quotes[str(
                 self.chapter)]["person"]) + ":\n-" + str(
-                person_list[0]).format(first_name.title())
+                person_list[0])
 
         # если нашли, то захватываем с собой
         else:
