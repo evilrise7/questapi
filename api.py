@@ -19,6 +19,11 @@ token = "AQAAAAAgJxqBAAT7o_igAfUDAkY3pzREDfFKi0k"
 # Данные о пользователе
 sessionStorage = {}
 
+# Команды для теста глав
+cmd = ["/chapter1", "/chapter2", "/chapter3", "/chapter4",
+       "/chapter5", "/chapter6", "/глава1", "/глава2",
+       "/глава3", "/глава4", "/глава5", "/глава6"]
+
 # Считываем инфу из файла с диалогами
 THIS_FOLDER = os.path.dirname(os.path.abspath(__file__))
 dialogues = os.path.join(THIS_FOLDER, 'quotes.json')
@@ -332,7 +337,7 @@ def main():
 
 # Поддерживание диалога с пользователем
 def handle_dialog(res, req):
-    global maps, dialog, quotes
+    global maps, dialog, quotes, cmd
     # Иницализация пользователя в сессиии
     user_id = req['session']['user_id']
 
@@ -383,12 +388,7 @@ def handle_dialog(res, req):
             return
 
     # Команды для админа, для перехода между главами(debug)
-    if req['request']['original_utterance'].lower() in ["/chapter1",
-                                                        "/chapter2",
-                                                        "/chapter3",
-                                                        "/chapter4",
-                                                        "/chapter5",
-                                                        "/chapter6"]:
+    if req['request']['original_utterance'].lower() in сьв:
         dialog.reset()
         dialog.chapter = -1
         dialog.chapter = int(
