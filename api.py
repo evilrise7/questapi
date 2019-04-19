@@ -138,6 +138,7 @@ class Dialogue:
         self.under = 0  # Отступ по иерархии в JSON. Подтипы [[0], [[1]]]
         self.begin = True  # Перейти в начало главы
         self.ending = 0
+        self.killed = -1  # Кого убили из детей
 
     # Работа с выбором реплик из JSON
     def response_dialogue(self):
@@ -289,6 +290,7 @@ class Dialogue:
 
         self.step = 0
         self.under = 0
+        self.killed = -1
 
 
 # Класс для передачи информации о ножах
@@ -359,14 +361,16 @@ def handle_dialog(res, req):
 
     # Если мы в Главе 1, дошли до части, где называем ребенка
     if not dialog.ending and write_suggests(user_id) == "name":
-        # Берем часть диалога об имени Шарлотты
-        data_res = dialog.name_sharlotta(user_id, req)
+        # Это работает только для первой главы!
+        if dialog.chapter == 1:
+            # Берем часть диалога об имени Шарлотты
+            data_res = dialog.name_sharlotta(user_id, req)
 
-        # Сбрасываем настройки диалога к следующей главе
-        dialog.reset()
-        dialog.chapter = 2
-        res = chapter_object(data_res, res, user_id)
-        return
+            # Сбрасываем настройки диалога к следующей главе
+            dialog.reset()
+            dialog.chapter = 2
+            res = chapter_object(data_res, res, user_id)
+            return
 
     # Если мы в Главе 2, дошли до части, где называем кафе
     if not dialog.ending and write_suggests(user_id) == "cafe":
@@ -471,6 +475,19 @@ def handle_dialog(res, req):
                         res = chapter_end(res, user_id, 1)
                         return
 
+        '''
+        Для шестой главы, при завершении диалога мы идем в конец 3/4
+        '''
+        if dialog.chapter == 6:
+            if dialog.question == 2:
+                dialog.killed = dialog.step + 3
+
+            if dialog.question == 5:
+                # Если уже конец главы, переходим на следующую
+                # Выводим ответ от навыка
+                res = chapter_end(res, user_id, dialog.killed)
+                return
+
         # Выводим ответ от навыка
         res['response']['text'] = dialog.response_dialogue()
 
@@ -542,11 +559,9 @@ def chapter_object(data_res, res, user_id):
 def chapter_end(res, user_id, kind):
     response_text = ""
 
-    dialog.check_end()
-
-    # Для главы 2, где мы не идем в кафе
+    # Работы концовок в навыке
     if kind:
-        # Заканчиваем игру концовкой 1
+        # Заканчиваем игру с концовкой kind
         dialog.chapter = -1
         dialog.begin = False
         dialog.ending = kind
@@ -555,6 +570,8 @@ def chapter_end(res, user_id, kind):
         response_text = dialog.response_dialogue()
         res['response']['text'] = response_text
         return
+
+    dialog.check_end()
 
     # Добавляем речь героев из следующей главы
     response_text += "\n" + dialog.response_dialogue()
