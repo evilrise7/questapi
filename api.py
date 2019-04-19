@@ -388,7 +388,7 @@ def handle_dialog(res, req):
             return
 
     # Команды для админа, для перехода между главами(debug)
-    if req['request']['original_utterance'].lower() in сьв:
+    if req['request']['original_utterance'].lower() in cmd:
         dialog.reset()
         dialog.chapter = -1
         dialog.chapter = int(
