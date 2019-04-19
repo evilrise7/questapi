@@ -127,7 +127,7 @@ class Dialogue:
 
     def __init__(self):
         # Текущая глава и концовка
-        self.chapter = 1
+        self.chapter = 0
         self.question = 1
         self.step = 0  # Отступ по иерархии в JSON.
         self.under = 0  # Отступ по иерархии в JSON. Подтипы [[0], [[1]]]
@@ -342,7 +342,7 @@ def handle_dialog(res, req):
         sessionStorage.clear()
         # Настройки для класса
         dialog.reset()
-        dialog.chapter = 1
+        dialog.chapter = 0
         res = new_chapter(res, user_id)
         return
 
@@ -385,7 +385,7 @@ def handle_dialog(res, req):
                                                         "/chapter2",
                                                         "/chapter3"]:
         dialog.reset()
-        dialog.chapter = 0
+        dialog.chapter = -1
         dialog.chapter = int(
             req['request']['original_utterance'].lower()[-1])
         res = new_chapter(res, user_id)
@@ -425,6 +425,14 @@ def handle_dialog(res, req):
         '''
         Для первой главый ограничение в обновлении, т.к. там есть вводы
         '''
+        if dialog.chapter == 0:
+            if dialog.question == 5:
+                # Если уже конец главы, переходим на следующую
+                if dialog.check_end():
+                    # Выводим ответ от навыка
+                    res = chapter_end(res, user_id, 0)
+                    return
+
         if dialog.chapter == 1:
             if dialog.question == 4 and dialog.step != 1:
                 # Если уже конец главы, переходим на следующую
