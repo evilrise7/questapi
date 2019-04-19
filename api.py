@@ -346,12 +346,14 @@ def handle_dialog(res, req):
         res = new_chapter(res, user_id)
         return
 
-    # Взять текущие предложенные ответы и перевести их в строчные
-    sug_list = dialog.get_suggests()
-    sug_list = list(map(lambda i: i.lower(), sug_list))
+    # Если мы не завершили игру, можно показать подсказки
+    if not dialog.ending:
+        # Взять текущие предложенные ответы и перевести их в строчные
+        sug_list = dialog.get_suggests()
+        sug_list = list(map(lambda i: i.lower(), sug_list))
 
     # Если мы в Главе 1, дошли до части, где называем ребенка
-    if write_suggests(user_id) == "name":
+    if not dialog.ending and write_suggests(user_id) == "name":
         # Берем часть диалога об имени Шарлотты
         data_res = dialog.name_sharlotta(user_id, req)
 
@@ -362,7 +364,7 @@ def handle_dialog(res, req):
         return
 
     # Если мы в Главе 2, дошли до части, где называем кафе
-    if write_suggests(user_id) == "cafe":
+    if not dialog.ending and write_suggests(user_id) == "cafe":
         # Если мы не берем подсказку
         if req['request']['original_utterance'].lower() \
                 not in 'самые близкие кафе':
@@ -383,7 +385,10 @@ def handle_dialog(res, req):
     # Команды для админа, для перехода между главами(debug)
     if req['request']['original_utterance'].lower() in ["/chapter1",
                                                         "/chapter2",
-                                                        "/chapter3"]:
+                                                        "/chapter3",
+                                                        "/chapter4",
+                                                        "/chapter5",
+                                                        "/chapter6"]:
         dialog.reset()
         dialog.chapter = -1
         dialog.chapter = int(
@@ -391,8 +396,16 @@ def handle_dialog(res, req):
         res = new_chapter(res, user_id)
         return
 
+    # Хотим сыграть еще раз в игру
+    if req['request']['original_utterance'].lower() in 'сыграть еще раз!':
+        dialog.reset()
+        dialog.chapter = 1
+        res = new_chapter(res, user_id)
+        return
+
     # Остальные случаи
-    if req['request']['original_utterance'].lower() in sug_list:
+    if not dialog.ending and req['request']['original_utterance'].lower() \
+            in sug_list:
         # Мы не в начале диалога, поэтому убираем эту опцию
         dialog.begin = False
 
@@ -416,6 +429,11 @@ def handle_dialog(res, req):
             # В случае Главы 2, где нас требуют выбрать кафе для ужина
             if dialog.chapter == 2:
                 if dialog.question == 2:
+                    dialog.step = sug_index
+
+            # В случае Главы 6, где нам требуется выбрать исход событий
+            if dialog.chapter == 6:
+                if dialog.question == 3 or dialog.question == 3:
                     dialog.step = sug_index
 
         # И наоборот
@@ -471,6 +489,10 @@ def handle_dialog(res, req):
             res['response']['buttons'] = get_suggests(user_id)
         return
 
+    if dialog.ending:
+        res['response']['text'] = error_check(res, "end")
+        return
+
     # В случае, если были взяты не те подсказки,
     # пользователю дают по шее и просят выбрать одну из них
     res['response']['text'] = error_check(res, "request_text")
@@ -523,11 +545,11 @@ def chapter_end(res, user_id, kind):
     dialog.check_end()
 
     # Для главы 2, где мы не идем в кафе
-    if kind == 1:
+    if kind:
         # Заканчиваем игру концовкой 1
-        dialog.chapter = 1
+        dialog.chapter = -1
         dialog.begin = False
-        dialog.ending = 1
+        dialog.ending = kind
 
         # Добавляем речь героев из следующей главы
         response_text = dialog.response_dialogue()
@@ -603,6 +625,7 @@ def error_check(res, error):
     # Если ошибка была из-за неправильно введенных данных
     if error == "request_text":
         bot_txt = "☻Навык:\n-Нажмите на одну из подсказок!"
+
     # Если нам нужно открыть карту с кафе
     if error == "map_cafe":
         suggests = [{
@@ -612,9 +635,16 @@ def error_check(res, error):
         }]
         res['response']['buttons'] = suggests
         return res
+
     # Если просмотрели кафе, то пишем его в навык
     if error == "name_cafe":
         bot_txt = "☻Навык:\n-Теперь, назовите кафе!"
+
+    # Если мы завершили игру и хотим еще раз сыграть
+    if error == "end":
+        bot_txt = "☻Навык:\n-Хотите сыграть еще?" + \
+                  "\nНапишите мне: 'Сыграть еще раз!'"
+
     # Возвращаем сообщение от навыка
     return bot_txt
 
