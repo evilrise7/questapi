@@ -132,7 +132,8 @@
     },
     "name": "Съемочный день",
     "description": "Место действия: Съемочная площадка в Лос-Анджелесе",
-    "image": "965417/7af6b95e2104380fa97b"
+    "image": "965417/7af6b95e2104380fa97b",
+      "url": "https://yandex.kz/maps/200/los-angeles/?l=sat%2Cskl&ll=-118.311688%2C34.088771&mode=search&sctx=ZAAAAAgBEAAaKAoSCU6wpIFElF3AETfJTdzDCkFAEhIJP4v4%2F38Ecj8RQw0gh9X2Yz8oCjAAOL2J0ebNjNmYmAFAyAFIAVXNzMw%2BWABiEmRpcmVjdF9wYWdlX2lkPTI0MmoCdXNwAJ0BzczMPaABAKgBAA%3D%3D&sll=-118.311688%2C34.088771&sspn=0.070381%2C0.038990&text=кафе&z=14"
   },
   "3": {
     "character": "♂Джейкоб",
@@ -179,10 +180,27 @@
         ]
       ]
     },
-    "name": "Место действия: Дом Томаса и Маргариты. ",
+    "name": "Дом Томаса и Маргариты. ",
     "description": "",
     "image": "213044/eab555fb3fdf68003e3f",
     "image_old1": "1652229/e849003950f6b1a0bb54",
     "image_old": "1652229/bb423fc275fda30c65cc"
-  }
+  },
+    "4":{
+        "character": "♂Мэйсон",
+        "person": "♂Продавец дисков",
+        "quotes":{
+            "1": [
+                [
+                    ""
+                ],
+                [
+                    ""
+                ]
+            ]
+        },
+        "name": "Магазин касет и дисков",
+        "description": "",
+        "image": "213044/eab555fb3fdf68003e3f"
+    }
 }
