@@ -123,7 +123,29 @@ class MapsAPI:
             return 0
 
 
+# Класс для передачи информации о ножах
+class WikipediaAPI:
+    def __init__(self, index):
+        # Настраиваю лист ножей
+        self.index = index
+        self.weapon_list = ["Нож разведчика",
+                            "Финка",
+                            "Керамбит"]
+
+        # Перемешиваю рандомно лист
+        self.weapon_list = random.shuffle(self.weapon_list)
+
+    # Взять информацию об оружиях из Wikipedia
+    def get_weapon_info(self):
+        # Настраиваю язык для WIKIPEDIA API
+        wikipedia.set_lang("ru")
+        # Вывожу только основное введение об оружии и возвращаю его
+        info = wikipedia.summary(self.weapon_list[self.index], sentences=3)
+        return info
+
+
 maps = MapsAPI()  # Для карт
+wiki = WikipediaAPI(random.randint(0, 2))  # Для википедии(ножи)
 
 
 # Класс для передачи информации из JSON в диалог
@@ -139,6 +161,9 @@ class Dialogue:
         self.begin = True  # Перейти в начало главы
         self.ending = 0
         self.killed = -1  # Кого убили из детей
+        # Какой исход выбрал герой в главе 4
+        self.cd_disk = [
+            "уже поздно, что-либо спрашивать... (вернуться в машину)"]
 
     # Работа с выбором реплик из JSON
     def response_dialogue(self):
@@ -293,28 +318,8 @@ class Dialogue:
         self.killed = -1
 
 
-# Класс для передачи информации о ножах
-class WikipediaAPI:
-    def __init__(self):
-        # Настраиваю лист ножей
-        self.index = 0
-        self.weapon_list = ["Нож разведчика",
-                            "Финка",
-                            "Керамбит"]
-        # Перемешиваю рандомно лист
-        self.weapon_list = random.shuffle(self.weapon_list)
-
-    def get_weapon_info(self):
-        # Настраиваю язык для WIKIPEDIA API
-        wikipedia.set_lang("ru")
-        # Вывожу только основное введение об оружии и возвращаю его
-        info = wikipedia.summary(self.weapon_list[self.index], sentences=3)
-        return info
-
-
 # Создаю объекты классов
 dialog = Dialogue()  # Для диалогов
-wiki = WikipediaAPI()  # Для википедии(ножи)
 
 
 # Тело навыка
@@ -418,7 +423,8 @@ def handle_dialog(res, req):
             req['request']['original_utterance'].lower())
 
         # Если уже конец главы, переходим на следующую
-        if dialog.check_end() and dialog.chapter != 2:
+        if dialog.check_end() and dialog.chapter != 2 and \
+                dialog.chapter != 4:
             res = chapter_end(res, user_id, 0)
             return
 
@@ -433,6 +439,11 @@ def handle_dialog(res, req):
             # В случае Главы 2, где нас требуют выбрать кафе для ужина
             if dialog.chapter == 2:
                 if dialog.question == 2:
+                    dialog.step = sug_index
+
+            # В случае Главы 4, где мы спрашиваем об убийце
+            if dialog.chapter == 4:
+                if 2 <= dialog.question < 4:
                     dialog.step = sug_index
 
             # В случае Главы 6, где нам требуется выбрать исход событий
@@ -474,6 +485,35 @@ def handle_dialog(res, req):
                         # Выводим ответ от навыка
                         res = chapter_end(res, user_id, 1)
                         return
+
+        '''
+        В третьей главе мы просто идем дальше в четвертую главу
+        '''
+        if dialog.chapter == 3:
+            if dialog.question == 5:
+                # Если уже конец главы, переходим на следующую
+                if dialog.check_end():
+                    res = chapter_end(res, user_id, 0)
+                    return
+
+        '''
+        Для четвертой главы, при завершении диалога мы идем в концовку 1
+        если мы не узнали деталей об убийстве. А если узнали, то вперед!
+        '''
+        if dialog.chapter == 4:
+            if dialog.question == 4:
+                # Если уже конец главы, переходим на следующую
+                if dialog.check_end():
+                    user_txt = req['request']['original_utterance'].lower()
+                    # Выводим ответ от навыка
+                    # Если мы не узнали детали об убийстве
+                    # Нас ждет одна из плохих концовок.
+                    if user_txt not in dialog.cd_disk:
+                        res = chapter_end(res, user_id, 2)
+                    # Если мы узнали, то переходим в главу 5
+                    else:
+                        res = chapter_end(res, user_id, 0)
+                    return
 
         '''
         Для шестой главы, при завершении диалога мы идем в конец 3/4
