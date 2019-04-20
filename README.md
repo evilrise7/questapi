@@ -15,9 +15,6 @@ GeocoderHTTP
 Работа с Алисой
 YANDEX.FIO
 MovieAPI
-```
-## Не сделано
-```
 Презентация
 ```
 ## Планы на API
