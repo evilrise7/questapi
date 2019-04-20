@@ -126,12 +126,9 @@ class MapsAPI:
 
 # Класс для передачи информации о ножах в википедии API
 class WikipediaAPI:
-    def __init__(self, index):
+    def __init__(self):
         # Настраиваю лист ножей
-        self.index = index
-        self.weapon_list = ["Нож разведчика",
-                            "Финка",
-                            "Керамбит"]
+        self.weapon_list = ["Балисонг", "Наваха", "Керамбит"]
 
         # Перемешиваю рандомно лист
         random.shuffle(self.weapon_list)
@@ -141,7 +138,8 @@ class WikipediaAPI:
         # Настраиваю язык для WIKIPEDIA API
         wikipedia.set_lang("ru")
         # Вывожу только основное введение об оружии и возвращаю его
-        info = wikipedia.summary(self.weapon_list[self.index], sentences=3)
+        info = wikipedia.summary(self.weapon_list[random.randint(
+            0, 2)], sentences=3)
         return info
 
 
@@ -191,7 +189,7 @@ class MovieAPI:
 
 
 maps = MapsAPI()  # Для карт
-wiki = WikipediaAPI(random.randint(0, 2))  # Для википедии(ножи)
+wiki = WikipediaAPI()  # Для википедии(ножи)
 movie_class = MovieAPI()  # Для фильмов
 
 
@@ -312,6 +310,17 @@ class Dialogue:
         return str(
             quotes["4"]["person"]) + ":\n-" + movie_sentence.format(
             returned_movies)
+
+    # Поиск описания оружий из WikipediaAPI
+    def get_weapons(self):
+        weapon_sentence = quotes["5"]["sentence"]
+
+        # Возвращенные фильмы
+        returned_weapons = wiki.get_weapon_info()
+        # Возвращаем реплику героя
+        return str(
+            quotes["5"]["person"]) + ":\n-" + weapon_sentence.format(
+            returned_weapons)
 
     # Захватить ответы из JSON файла
     def get_suggests(self):
@@ -577,6 +586,16 @@ def handle_dialog(res, req):
                     return
 
         '''
+        Для пятой главы нет никаких требований. Она нейтральна
+        '''
+        if dialog.chapter == 5:
+            if dialog.question == 7:
+                # Если уже конец главы, переходим на следующую
+                if dialog.check_end():
+                    res = chapter_end(res, user_id, 0)
+                    return
+
+        '''
         Для шестой главы, при завершении диалога мы идем в конец 3/4
         '''
         if dialog.chapter == 6:
@@ -589,18 +608,25 @@ def handle_dialog(res, req):
                 res = chapter_end(res, user_id, dialog.killed)
                 return
 
-        # Выводим ответ от навыка
-        if dialog.chapter != 4:
-            res['response']['text'] = dialog.response_dialogue()
-
         # Если мы дошли до части, где продавец предлагает нам фильмы
-        else:
+        if dialog.chapter == 4:
             if dialog.question == 2 and dialog.step == 0:
                 res['response']['text'] = dialog.get_movies()
-
             # Если это другой исход событий
             else:
                 res['response']['text'] = dialog.response_dialogue()
+
+        # Если мы дошли до части, где предлагают оружия
+        elif dialog.chapter == 5:
+            if dialog.question == 5:
+                res['response']['text'] = dialog.get_weapons()
+            # Если это другой исход событий
+            else:
+                res['response']['text'] = dialog.response_dialogue()
+
+        # Все остальные случаи
+        else:
+            res['response']['text'] = dialog.response_dialogue()
 
         # Заполняем предложенные ответы
         # Если просили дать ответ с клавиатуры, подсказок нет
