@@ -13,7 +13,8 @@ import wikipedia
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'oh_so_secret'
 logging.basicConfig(level=logging.INFO)
-# Для медиа в API
+
+# Для медиа в Алиса API
 token = "AQAAAAAgJxqBAAT7o_igAfUDAkY3pzREDfFKi0k"
 
 # Данные о пользователе
@@ -38,7 +39,7 @@ with open(endings, "rt", encoding="utf8") as f:
     ends = json.loads(f.read())
 
 
-# Класс для работы со всем, что связано с картами
+# Класс для работы со всем, что связано с API картами
 class MapsAPI:
     def __init__(self):
         # Для поиска объектов
@@ -123,7 +124,7 @@ class MapsAPI:
             return 0
 
 
-# Класс для передачи информации о ножах
+# Класс для передачи информации о ножах в википедии API
 class WikipediaAPI:
     def __init__(self, index):
         # Настраиваю лист ножей
@@ -133,7 +134,7 @@ class WikipediaAPI:
                             "Керамбит"]
 
         # Перемешиваю рандомно лист
-        self.weapon_list = random.shuffle(self.weapon_list)
+        random.shuffle(self.weapon_list)
 
     # Взять информацию об оружиях из Wikipedia
     def get_weapon_info(self):
@@ -144,8 +145,54 @@ class WikipediaAPI:
         return info
 
 
+# Класс для API фильмов
+class MovieAPI:
+    def __init__(self):
+        # API ключ. Ограничение на использование 1000 запросов
+        self.api_key = "c513d164"
+        self.link = "http://www.omdbapi.com/?t={}&apikey={}"
+        self.movies = []
+
+    # Функция получает фильмы
+    def get_movies(self, movie_list):
+        self.movies = []
+        # Перемешиваем лист тегов для фильмов, чтобы не повторятся
+        random.shuffle(movie_list)
+
+        # Берем только первые 3 названия из перемешанного листа
+        movie_list = movie_list[:3]
+        for i in range(len(movie_list)):
+            # Ответ от найденного фильма
+            response = None
+            try:
+                response = requests.get(self.link.format(
+                    movie_list[i], self.api_key))
+
+                if response:
+                    json_response = response.json()
+                    # Добавляем полученный фильм
+                    self.movies.append(json_response["Title"])
+
+                # Обработка ошибки запроса
+                else:
+                    print("SEARCH_ERROR")
+                    print("HTTP_ERR ",
+                          response.status_code, "(", response.reason, ")")
+
+            # Обработка ошибки с интернет соединением
+            except Exception:
+                print("INTERNET_CONNECTION_PROBLEM")
+
+        return ", ".join(self.movies)
+
+    # Сбросить значения класса
+    def reset(self):
+        self.movies = []
+
+
 maps = MapsAPI()  # Для карт
 wiki = WikipediaAPI(random.randint(0, 2))  # Для википедии(ножи)
+movie_class = MovieAPI()  # Для фильмов
 
 
 # Класс для передачи информации из JSON в диалог
@@ -253,6 +300,19 @@ class Dialogue:
                 self.chapter)]["person"]) + ":\n-" + str(
                 person_list[-1])
 
+    # Поиск фильмов, если дошли до Главы 4, где продавец предлагает их
+    def get_movies(self):
+        movie_sentence = quotes["4"]["sentence"]
+        # Тэги к фильмам, которые следует найти
+        movie_tags = quotes["4"]["titles"]
+
+        # Возвращенные фильмы
+        returned_movies = movie_class.get_movies(movie_tags)
+        # Возвращаем реплику героя
+        return str(
+            quotes["4"]["person"]) + ":\n-" + movie_sentence.format(
+            returned_movies)
+
     # Захватить ответы из JSON файла
     def get_suggests(self):
         # Забираем список предложенных ответов
@@ -308,6 +368,7 @@ class Dialogue:
 
     # Сброс значений
     def reset(self):
+        movie_class.reset()
         self.question = 1
 
         self.begin = True
@@ -529,7 +590,17 @@ def handle_dialog(res, req):
                 return
 
         # Выводим ответ от навыка
-        res['response']['text'] = dialog.response_dialogue()
+        if dialog.chapter != 4:
+            res['response']['text'] = dialog.response_dialogue()
+
+        # Если мы дошли до части, где продавец предлагает нам фильмы
+        else:
+            if dialog.question == 2 and dialog.step == 0:
+                res['response']['text'] = dialog.get_movies()
+
+            # Если это другой исход событий
+            else:
+                res['response']['text'] = dialog.response_dialogue()
 
         # Заполняем предложенные ответы
         # Если просили дать ответ с клавиатуры, подсказок нет
