@@ -18,11 +18,11 @@ StaticMapsAPI
 GeocoderHTTP
 Работа с Алисой
 YANDEX.FIO
+MovieAPI
 ```
 ## Не сделано
 ```
 Глава 5
-MovieAPI
 Презентация
 ```
 ## Планы на API
